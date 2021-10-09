@@ -1,4 +1,5 @@
-obj-m += rootkit.o
+obj-m += mycode.o
+mycode-y := rootkit.o functions.o
 
 all:
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules

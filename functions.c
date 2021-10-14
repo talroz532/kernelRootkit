@@ -1,7 +1,7 @@
 #include "functions.h"
 
 //removing WP to read&write
-int set_addr_rw(unsigned long addr) {
+int unprotect_memory(unsigned long addr) {
 
         unsigned int level;
         pte_t *pte;
@@ -16,7 +16,7 @@ int set_addr_rw(unsigned long addr) {
 }
 
 //return protected mode to read only
-int set_addr_ro(unsigned long addr) {
+int protect_memory(unsigned long addr) {
 
         unsigned int level;
         pte_t *pte;

